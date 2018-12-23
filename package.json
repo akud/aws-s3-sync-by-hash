@@ -1,0 +1,38 @@
+{
+  "name": "@akud/aws-s3-sync-by-hash",
+  "version": "1.0.0",
+  "description": "A utility function to sync a directory to s3, using hashes to determined changed files (as opposed to timestamps, which is what the aws cli uses).",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:debug": "node-inspect $(npm bin)/jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/akud/aws-s3-sync-by-hash.git"
+  },
+  "keywords": [
+    "aws",
+    "s3",
+    "sync",
+    "upload",
+    "md5",
+    "hash"
+  ],
+  "author": "Alex Kudlick",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/akud/aws-s3-sync-by-hash/issues"
+  },
+  "homepage": "https://github.com/akud/aws-s3-sync-by-hash#readme",
+  "dependencies": {
+    "aws-sdk": "^2.382.0",
+    "event-stream": "^4.0.1",
+    "md5-file": "^4.0.0",
+    "mime-types": "^2.1.21",
+    "readdirp": "^2.2.1"
+  },
+  "devDependencies": {
+    "jest": "^23.6.0"
+  }
+}
