@@ -13,7 +13,7 @@ to determine files that need uploading.
 Usage:
 
 ```javascript
-const awsS3Sync = require('@akud/aws-s3-sync');
+const awsS3Sync = require('@akud/aws-s3-sync-by-hash');
 
 awsS3Sync({
  accessKeyId: AWS_ACCESS_KEY_ID,
