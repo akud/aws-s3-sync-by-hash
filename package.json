@@ -20,7 +20,7 @@
     "hash"
   ],
   "author": "Alex Kudlick",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/akud/aws-s3-sync-by-hash/issues"
   },
