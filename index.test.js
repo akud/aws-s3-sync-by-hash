@@ -297,16 +297,16 @@ describe('awsS3Sync', () => {
   it('pages through s3 listObjectsV2 results to get all keys', async () => {
     mockReadDirp.mockReturnValue(es.readArray([]));
     mockFileAccess.mockImplementation(callCallbackWithError());
-    mockS3.listObjectsV2.mockImplementation(
-      inOrder(
-        callCallbackWithData({
-          Contents: [ { Key: 'foo.json' }, { Key: 'bar.json' }],
-          NextContinuationToken: 'foobar'
-        }),
-        callCallbackWithData({
-          Contents: [ { Key: 'baz.json' }, ]
-        }),
-      )
+    mockS3.listObjectsV2.mockImplementationOnce(
+      callCallbackWithData({
+        Contents: [ { Key: 'foo.json' }, { Key: 'bar.json' }],
+        NextContinuationToken: 'foobar'
+      })
+    );
+    mockS3.listObjectsV2.mockImplementationOnce(
+      callCallbackWithData({
+        Contents: [ { Key: 'baz.json' }, ]
+      })
     );
     mockS3.deleteObject.mockImplementation(callCallbackWithData());
 
@@ -368,13 +368,5 @@ describe('awsS3Sync', () => {
     expect(mockS3.listObjectsV2).not.toHaveBeenCalled();
     expect(mockS3.deleteObject).not.toHaveBeenCalled();
     expect(mockFileAccess).not.toHaveBeenCalled();
-  };
-  const inOrder = (...funcs) => {
-    let invocationCount = 0;
-    return (...args) => {
-      const f = funcs[invocationCount];
-      invocationCount += 1;
-      return f(...args);
-    };
   };
 });
