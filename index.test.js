@@ -64,7 +64,7 @@ describe('awsS3Sync', () => {
       { Key: 'file1.json' }
     ));
 
-    await awsS3Sync(options);
+    await awsS3Sync(Object.assign(options, { maxAge: 2400 }));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -82,7 +82,7 @@ describe('awsS3Sync', () => {
         Bucket: options.bucket,
         Key: 'file1.json',
         Body: mockBody,
-        CacheControl: 'max-age=86400',
+        CacheControl: 'max-age=2400',
         ContentType: 'application/json',
         Metadata: {
           hash: 'deadbeef',
@@ -229,6 +229,201 @@ describe('awsS3Sync', () => {
     );
     expectNoDelete();
   });
+
+  it('calls the maxAge function to compute max age', async () => {
+    const lastModified = new Date();
+    mockReadDirp.mockReturnValue(es.readArray([
+      fileObject('file1.json'),
+      fileObject('file2.json'),
+    ]));
+    mockS3.headObject.mockImplementationOnce(callCallbackWithError({ statusCode: 404 }));
+    mockS3.headObject.mockImplementationOnce(callCallbackWithData({
+      Key: 'file2.json',
+      LastModified: lastModified,
+      Metadata: {
+        hash: 'oldhash',
+      },
+    }));
+    mockMd5File.mockImplementationOnce(callCallbackWithData('deadbeef'));
+    mockMd5File.mockImplementationOnce(callCallbackWithData('baddadfad'));
+    mockCreateReadStream.mockImplementationOnce(() => 'body1');
+    mockCreateReadStream.mockImplementationOnce(() => 'body2');
+    mockS3.upload.mockImplementationOnce(callCallbackWithData({ Key: 'file1.json' }));
+    mockS3.upload.mockImplementationOnce(callCallbackWithData({ Key: 'file2.json' }));
+
+    const maxAgeProvider = jest.fn()
+      .mockImplementationOnce(() => 1234)
+      .mockImplementationOnce(() => 5678);
+
+    await awsS3Sync(Object.assign(options, { maxAge: maxAgeProvider }));
+
+    expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
+    expect(mockS3.headObject).toHaveBeenCalledWith(
+      {
+        Bucket: options.bucket,
+        Key: 'file1.json',
+      },
+      expect.any(Function)
+    );
+    expect(mockS3.headObject).toHaveBeenCalledWith(
+      {
+        Bucket: options.bucket,
+        Key: 'file2.json',
+      },
+      expect.any(Function)
+    );
+
+    expect(mockMd5File).toHaveBeenCalledWith(fullPath('file1.json'), expect.any(Function));
+    expect(mockMd5File).toHaveBeenCalledWith(fullPath('file2.json'), expect.any(Function));
+    expect(mockCreateReadStream).toHaveBeenCalledWith(fullPath('file1.json'));
+    expect(mockCreateReadStream).toHaveBeenCalledWith(fullPath('file2.json'));
+    expect(mockS3.upload).toHaveBeenCalledWith(
+      {
+        ACL: options.acl || 'private',
+        Bucket: options.bucket,
+        Key: 'file1.json',
+        Body: 'body1',
+        CacheControl: 'max-age=1234',
+        ContentType: 'application/json',
+        Metadata: {
+          hash: 'deadbeef',
+        },
+      },
+      expect.any(Function)
+    );
+    expect(mockS3.upload).toHaveBeenCalledWith(
+      {
+        ACL: options.acl || 'private',
+        Bucket: options.bucket,
+        Key: 'file2.json',
+        Body: 'body2',
+        CacheControl: 'max-age=5678',
+        ContentType: 'application/json',
+        Metadata: {
+          hash: 'baddadfad',
+        },
+      },
+      expect.any(Function)
+    );
+    expect(maxAgeProvider).toHaveBeenCalledWith({
+      fullPath: fullPath('file1.json'),
+      hash: 'deadbeef',
+      path: 'file1.json',
+      s3Metadata: {
+        hash: null,
+        lastModified: null
+      }
+    });
+    expect(maxAgeProvider).toHaveBeenCalledWith({
+      fullPath: fullPath('file2.json'),
+      hash: 'baddadfad',
+      path: 'file2.json',
+      s3Metadata: {
+        hash: 'oldhash',
+        lastModified: lastModified
+      }
+    });
+
+    expectNoDelete();
+  });
+
+  it('calls the acl function to compute acl', async () => {
+    const lastModified = new Date();
+    mockReadDirp.mockReturnValue(es.readArray([
+      fileObject('file1.json'),
+      fileObject('file2.json'),
+    ]));
+    mockS3.headObject.mockImplementationOnce(callCallbackWithError({ statusCode: 404 }));
+    mockS3.headObject.mockImplementationOnce(callCallbackWithData({
+      Key: 'file2.json',
+      LastModified: lastModified,
+      Metadata: {
+        hash: 'oldhash',
+      },
+    }));
+    mockMd5File.mockImplementationOnce(callCallbackWithData('deadbeef'));
+    mockMd5File.mockImplementationOnce(callCallbackWithData('baddadfad'));
+    mockCreateReadStream.mockImplementationOnce(() => 'body1');
+    mockCreateReadStream.mockImplementationOnce(() => 'body2');
+    mockS3.upload.mockImplementationOnce(callCallbackWithData({ Key: 'file1.json' }));
+    mockS3.upload.mockImplementationOnce(callCallbackWithData({ Key: 'file2.json' }));
+
+    const aclProvider = jest.fn()
+      .mockImplementationOnce(() => 'private')
+      .mockImplementationOnce(() => 'public');
+
+    await awsS3Sync(Object.assign(options, { acl: aclProvider }));
+
+    expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
+    expect(mockS3.headObject).toHaveBeenCalledWith(
+      {
+        Bucket: options.bucket,
+        Key: 'file1.json',
+      },
+      expect.any(Function)
+    );
+    expect(mockS3.headObject).toHaveBeenCalledWith(
+      {
+        Bucket: options.bucket,
+        Key: 'file2.json',
+      },
+      expect.any(Function)
+    );
+
+    expect(mockMd5File).toHaveBeenCalledWith(fullPath('file1.json'), expect.any(Function));
+    expect(mockMd5File).toHaveBeenCalledWith(fullPath('file2.json'), expect.any(Function));
+    expect(mockCreateReadStream).toHaveBeenCalledWith(fullPath('file1.json'));
+    expect(mockCreateReadStream).toHaveBeenCalledWith(fullPath('file2.json'));
+    expect(mockS3.upload).toHaveBeenCalledWith(
+      {
+        ACL: 'private',
+        Bucket: options.bucket,
+        Key: 'file1.json',
+        Body: 'body1',
+        CacheControl: 'max-age=86400',
+        ContentType: 'application/json',
+        Metadata: {
+          hash: 'deadbeef',
+        },
+      },
+      expect.any(Function)
+    );
+    expect(mockS3.upload).toHaveBeenCalledWith(
+      {
+        ACL: 'public',
+        Bucket: options.bucket,
+        Key: 'file2.json',
+        Body: 'body2',
+        CacheControl: 'max-age=86400',
+        ContentType: 'application/json',
+        Metadata: {
+          hash: 'baddadfad',
+        },
+      },
+      expect.any(Function)
+    );
+    expect(aclProvider).toHaveBeenCalledWith({
+      fullPath: fullPath('file1.json'),
+      hash: 'deadbeef',
+      path: 'file1.json',
+      s3Metadata: {
+        hash: null,
+        lastModified: null
+      }
+    });
+    expect(aclProvider).toHaveBeenCalledWith({
+      fullPath: fullPath('file2.json'),
+      hash: 'baddadfad',
+      path: 'file2.json',
+      s3Metadata: {
+        hash: 'oldhash',
+        lastModified: lastModified
+      }
+    });
+
+    expectNoDelete();
+  });
+
 
   it('deletes files that are not on disk when delete is specified', async () => {
     mockReadDirp.mockReturnValue(es.readArray([]));
