@@ -22,8 +22,13 @@ awsS3Sync({
  root: root directory to sync from [Required]
  force: force upload even if hashes match [Default: false]
  delete: delete files from bucket not in root directory [Default false]
- maxAge: max age to set for cache-control, in seconds. [Default: 86400 (one day)]
- acl: ACL to set on uploaded objects. [Default 'private']
+ maxAge: [function|number] max age to set for cache-control, in seconds.
+    if a function is supplied, it will be called with the entry object,
+    and the return value will be used to set a max age.
+    [default: 86400 (one day)]
+ acl: [function|string] ACL to set on uploaded objects. If a function
+    is supplied, it will be called with an object representing the entry
+    and the return value will be used to set an acl. [Default 'private']
 });
 ```
 

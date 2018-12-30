@@ -48,6 +48,7 @@ class Syncer {
   createUploadPromise() {
     return new Promise((resolve, reject) => {
       readdirp({ root: this.root })
+        .pipe(es.map(this.loadS3Metadata.bind(this)))
         .pipe(es.map(this.filterByHash.bind(this)))
         .pipe(es.map(this.uploadFile.bind(this)))
         .pipe(es.map((entry, callback) => {
@@ -73,7 +74,7 @@ class Syncer {
     });
   }
 
-  filterByHash(fsEntry, callback) {
+  loadS3Metadata(fsEntry, callback) {
     this.s3.headObject({
       Bucket: this.bucket,
       Key: fsEntry.path,
@@ -81,31 +82,42 @@ class Syncer {
       if (awsError && awsError.statusCode !== 404) {
         fail(awsError, callback);
       } else {
-        const storedHash = data && data.Metadata.hash;
-        md5File(fsEntry.fullPath, (hashError, hash) => {
-          if (hashError) {
-            fail(hashError, callback);
-          } else if (this.force || storedHash !== hash) {
-            const withHash = Object.assign({ hash: hash }, fsEntry);
-            passThrough(withHash, callback);
-          } else {
-            exclude(fsEntry, callback);
-          }
-        });
+        const withMetadata = Object.assign({
+          s3Metadata: {
+            hash: data && data.Metadata.hash,
+            lastModified: data && data.LastModified,
+          },
+        }, fsEntry);
+        passThrough(withMetadata, callback);
       }
     })
+
   }
 
-  uploadFile(fsEntryWithHash, callback) {
+  filterByHash(metadataEntry, callback) {
+    const storedHash = metadataEntry.s3Metadata.hash;
+    md5File(metadataEntry.fullPath, (hashError, hash) => {
+      if (hashError) {
+        fail(hashError, callback);
+      } else if (this.force || storedHash !== hash) {
+        const withHash = Object.assign({ hash: hash }, metadataEntry);
+        passThrough(withHash, callback);
+      } else {
+        exclude(metadataEntry, callback);
+      }
+    });
+  }
+
+  uploadFile(s3EntryWithHash, callback) {
     this.s3.upload({
-      ACL: this.acl,
+      ACL: this.computeACL(s3EntryWithHash),
       Bucket: this.bucket,
-      Key: fsEntryWithHash.path,
-      Body: fs.createReadStream(fsEntryWithHash.fullPath),
-      CacheControl: 'max-age=' + this.maxAge,
-      ContentType: mimetypes.lookup(fsEntryWithHash.path) || 'application/octet-stream',
+      Key: s3EntryWithHash.path,
+      Body: fs.createReadStream(s3EntryWithHash.fullPath),
+      CacheControl: 'max-age=' + this.computeMaxAge(s3EntryWithHash),
+      ContentType: mimetypes.lookup(s3EntryWithHash.path) || 'application/octet-stream',
       Metadata: {
-        hash: fsEntryWithHash.hash,
+        hash: s3EntryWithHash.hash,
       },
     }, (awsError, data) => {
       if (awsError) {
@@ -168,6 +180,23 @@ class Syncer {
       }
     });
   }
+
+  computeMaxAge(entry) {
+    if (typeof this.maxAge == 'function') {
+      return this.maxAge(entry);
+    } else {
+      return this.maxAge;
+    }
+  }
+
+  computeACL(entry) {
+    if (typeof this.acl == 'function') {
+      return this.acl(entry);
+    } else {
+      return this.acl;
+    }
+  }
+
 }
 
 const passThrough = function(entry, callback) {
@@ -190,8 +219,13 @@ const exclude = function(entry, callback) {
  *   root: root directory to sync from,
  *   force: force upload even if hashes match,
  *   delete: delete files from bucket that don't exist in root
- *   maxAge: max age to set for cache-control, in seconds. Defaults to 86400 (one day)
- *   acl: ACL to set on uploaded objects. Defaults to 'private'
+ *   maxAge: [function|number] max age to set for cache-control, in seconds.
+ *      if a function is supplied, it will be called with the entry object,
+ *      and the return value will be used to set a max age.
+ *      [default: 86400 (one day)]
+ *   acl: [function|string] ACL to set on uploaded objects. If a function
+ *      is supplied, it will be called with an object representing the entry
+ *      and the return value will be used to set an acl. [Default 'private']
  * }
  */
 module.exports = function(options) {
