@@ -33,6 +33,7 @@ class Syncer {
       accessKeyId: options.accessKeyId,
       secretAccessKey: options.secretAccessKey,
       region: options.region,
+      sessionToken: options.sessionToken,
     });
   }
 

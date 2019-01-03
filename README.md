@@ -18,6 +18,8 @@ const awsS3Sync = require('@akud/aws-s3-sync-by-hash');
 awsS3Sync({
  accessKeyId: AWS_ACCESS_KEY_ID,
  secretAccessKey: AWS_SECRET_ACCESS_KEY,
+ region: AWS_DEFAULT_REGION,
+ sessionToken: AWS_SESSION_TOKEN,
  bucket: bucket to sync to [Required]
  root: root directory to sync from [Required]
  force: force upload even if hashes match [Default: false]
@@ -33,3 +35,5 @@ awsS3Sync({
 ```
 
 The function returns a promise.
+
+If you have `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` or `AWS_SESSION_TOKEN` in `process.env`, it is recommended you don't set those options at all and the environment variables will be used automagically. It is the recommended way to do it because if you don't set all the variables, e.g. only set `accessKeyId: AWS_ACCESS_KEY_ID` and `secretAccessKey: AWS_SECRET_ACCESS_KEY`, but don't set `sessionToken: AWS_SESSION_TOKEN`, you'll get a `forbidden` error.
