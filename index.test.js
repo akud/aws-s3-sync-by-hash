@@ -64,7 +64,7 @@ describe('awsS3Sync', () => {
       { Key: 'file1.json' }
     ));
 
-    await awsS3Sync(Object.assign(options, { maxAge: 2400 }));
+    const result = await awsS3Sync(Object.assign(options, { maxAge: 2400 }));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -91,6 +91,11 @@ describe('awsS3Sync', () => {
       expect.any(Function)
     );
     expectNoDelete();
+
+    expect(result).toEqual({
+      uploadedFiles: ['file1.json'],
+      deletedFiles: []
+    });
   });
 
   it('uploads files whose hash has changed', async () => {
@@ -114,7 +119,7 @@ describe('awsS3Sync', () => {
       { Key: 'file1.json' }
     ));
 
-    await awsS3Sync(options);
+    const result = await awsS3Sync(options);
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -141,6 +146,11 @@ describe('awsS3Sync', () => {
       expect.any(Function)
     );
     expectNoDelete();
+
+    expect(result).toEqual({
+      uploadedFiles: ['file1.json'],
+      deletedFiles: []
+    });
   });
 
   it('skips files that have the same hash', async () => {
@@ -164,7 +174,7 @@ describe('awsS3Sync', () => {
       { Key: 'file1.json' }
     ));
 
-    await awsS3Sync(options);
+    const result = await awsS3Sync(options);
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -178,6 +188,11 @@ describe('awsS3Sync', () => {
     expect(mockCreateReadStream).not.toHaveBeenCalled();
     expect(mockS3.upload).not.toHaveBeenCalled();
     expectNoDelete();
+
+    expect(result).toEqual({
+      uploadedFiles: [],
+      deletedFiles: []
+    });
   });
 
   it('uploads files with the same hash if force is specified', async () => {
@@ -201,7 +216,7 @@ describe('awsS3Sync', () => {
       { Key: 'file1.json' }
     ));
 
-    await awsS3Sync(Object.assign({ force: true }, options));
+    const result = await awsS3Sync(Object.assign({ force: true }, options));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -228,6 +243,11 @@ describe('awsS3Sync', () => {
       expect.any(Function)
     );
     expectNoDelete();
+
+    expect(result).toEqual({
+      uploadedFiles: ['file1.json'],
+      deletedFiles: []
+    });
   });
 
   it('calls the maxAge function to compute max age', async () => {
@@ -255,7 +275,7 @@ describe('awsS3Sync', () => {
       .mockImplementationOnce(() => 1234)
       .mockImplementationOnce(() => 5678);
 
-    await awsS3Sync(Object.assign(options, { maxAge: maxAgeProvider }));
+    const result = await awsS3Sync(Object.assign(options, { maxAge: maxAgeProvider }));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -325,6 +345,11 @@ describe('awsS3Sync', () => {
     });
 
     expectNoDelete();
+
+    expect(result).toEqual({
+      uploadedFiles: ['file1.json', 'file2.json'],
+      deletedFiles: []
+    });
   });
 
   it('calls the acl function to compute acl', async () => {
@@ -352,7 +377,7 @@ describe('awsS3Sync', () => {
       .mockImplementationOnce(() => 'private')
       .mockImplementationOnce(() => 'public');
 
-    await awsS3Sync(Object.assign(options, { acl: aclProvider }));
+    const result = await awsS3Sync(Object.assign(options, { acl: aclProvider }));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).toHaveBeenCalledWith(
@@ -422,6 +447,11 @@ describe('awsS3Sync', () => {
     });
 
     expectNoDelete();
+
+    expect(result).toEqual({
+      uploadedFiles: ['file1.json', 'file2.json'],
+      deletedFiles: []
+    });
   });
 
 
@@ -435,7 +465,7 @@ describe('awsS3Sync', () => {
     }));
     mockS3.deleteObject.mockImplementation(callCallbackWithData());
 
-    await awsS3Sync(Object.assign({ delete: true }, options));
+    const result = await awsS3Sync(Object.assign({ delete: true }, options));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).not.toHaveBeenCalled();
@@ -458,6 +488,11 @@ describe('awsS3Sync', () => {
       },
       expect.any(Function)
     );
+
+    expect(result).toEqual({
+      uploadedFiles: [],
+      deletedFiles: ['foo.json']
+    });
   });
 
   it('does not delete files that are on disk when delete is specified', async () => {
@@ -470,7 +505,7 @@ describe('awsS3Sync', () => {
     }));
     mockS3.deleteObject.mockImplementation(callCallbackWithData());
 
-    await awsS3Sync(Object.assign({ delete: true }, options));
+    const result = await awsS3Sync(Object.assign({ delete: true }, options));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).not.toHaveBeenCalled();
@@ -487,6 +522,11 @@ describe('awsS3Sync', () => {
     );
 
     expect(mockS3.deleteObject).not.toHaveBeenCalled();
+
+    expect(result).toEqual({
+      uploadedFiles: [],
+      deletedFiles: []
+    });
   });
 
   it('pages through s3 listObjectsV2 results to get all keys', async () => {
@@ -506,7 +546,7 @@ describe('awsS3Sync', () => {
     mockS3.deleteObject.mockImplementation(callCallbackWithData());
 
 
-    await awsS3Sync(Object.assign({ delete: true }, options));
+    const result = await awsS3Sync(Object.assign({ delete: true }, options));
 
     expect(mockReadDirp).toHaveBeenCalledWith({ root: options.root });
     expect(mockS3.headObject).not.toHaveBeenCalled();
@@ -550,6 +590,11 @@ describe('awsS3Sync', () => {
       },
       expect.any(Function)
     );
+
+    expect(result).toEqual({
+      uploadedFiles: [],
+      deletedFiles: ['foo.json', 'bar.json', 'baz.json']
+    });
   });
 
  const fileObject = path => ({

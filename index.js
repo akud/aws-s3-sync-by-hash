@@ -40,37 +40,55 @@ class Syncer {
   sync() {
     const uploadPromise = this.createUploadPromise();
     if (this.delete) {
-      return uploadPromise.then(() => this.createDeletePromise());
+      return uploadPromise.then(
+        uploadedFiles => this.createDeletePromise().then(deletedFiles => ({
+          uploadedFiles,
+          deletedFiles
+        }))
+      );
     } else {
-      return uploadPromise;
+      return uploadPromise.then(uploadedFiles => ({
+        uploadedFiles,
+        deletedFiles: []
+      }));
     }
   }
 
   createUploadPromise() {
+    const uploadedFiles = [];
     return new Promise((resolve, reject) => {
       readdirp({ root: this.root })
         .pipe(es.map(this.loadS3Metadata.bind(this)))
         .pipe(es.map(this.filterByHash.bind(this)))
         .pipe(es.map(this.uploadFile.bind(this)))
         .pipe(es.map((entry, callback) => {
+          uploadedFiles.push(entry.Key);
+          passThrough(entry, callback);
+        }))
+        .pipe(es.map((entry, callback) => {
           passThrough('Uploaded: ' + entry.Key + '\n', callback);
         }))
         .on('error', reject)
-        .on('end', resolve)
+        .on('end', () => resolve(uploadedFiles))
         .pipe(process.stdout);
     });
   }
 
   createDeletePromise() {
+    const deletedFiles = [];
     return new Promise((resolve, reject) => {
       this.streamAllKeys()
         .pipe(es.map(this.filterOutExistingFiles.bind(this)))
         .pipe(es.map(this.deleteKey.bind(this)))
         .pipe(es.map((entry, callback) => {
+          deletedFiles.push(entry);
+          passThrough(entry, callback);
+        }))
+        .pipe(es.map((entry, callback) => {
           passThrough('Deleted: ' + entry + '\n', callback);
         }))
         .on('error', reject)
-        .on('end', resolve)
+        .on('end', () => resolve(deletedFiles))
         .pipe(process.stdout);
     });
   }
