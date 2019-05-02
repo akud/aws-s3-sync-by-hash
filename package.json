@@ -1,6 +1,6 @@
 {
   "name": "@akud/aws-s3-sync-by-hash",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A utility function to sync a directory to s3, using hashes to determined changed files (as opposed to timestamps, which is what the aws cli uses).",
   "main": "index.js",
   "scripts": {
